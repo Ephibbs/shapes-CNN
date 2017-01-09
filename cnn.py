@@ -120,7 +120,7 @@ def pretrainAndSaveModel((trainDataX, trainDataY), (testDataX, testDataY), batch
 		if epoch%1 == 0:
 			train_accuracy = accuracy.eval(feed_dict={
 				x: batchX, y_: batchY, keep_prob: 1.0})
-			print("step %d, training accuracy %g"%(epoch, train_accuracy))
+			print("step %d, training accuracy %.4f"%(epoch, train_accuracy))
 	acc = accuracy.eval(feed_dict={
 	    x: testDataX, y_: testDataY, keep_prob: 1.0})
 	print("test accuracy %g"%acc)
@@ -180,21 +180,27 @@ def trainAndTestModel(modelPath, dataSource="mnist", numTrain=1, batchSize=100, 
 	accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 	sess.run(tf.global_variables_initializer())
 
-	counts = [0]*10
-	batch = [[],[]]
-	while sum(counts) < 10*numTrain:
-		sample = data.train.next_batch(1)
-		if counts[rev_one_hot(sample[1][0])] < 10:
-			batch[0].append(sample[0][0])
-			batch[1].append(sample[1][0])
-			counts[rev_one_hot(sample[1][0])]+=1
-
+	counts = [0]*ySize
+	batches = []
+	while sum(counts) < ySize*numTrain:
+		batch = [[],[]]
+		while len(batch[0]) < batchSize and sum(counts) < ySize*numTrain:
+			sample = data.train.next_batch(1)
+			print counts
+			if counts[rev_one_hot(sample[1][0])] < numTrain:
+				batch[0].append(sample[0][0])
+				batch[1].append(sample[1][0])
+				counts[rev_one_hot(sample[1][0])]+=1
+		batches.append(batch)
+	numBatches = len(batches)
 	for i in range(numEpochs):
-		if i%1 == 0:
+		if numTrain>0: batch = batches[i % numBatches]
+		else: batch = data.train.next_batch(batchSize)
+		if i%100 == 0:
 			train_accuracy = accuracy.eval(feed_dict={
 				x:batch[0], y_: batch[1], keep_prob: 1.0})
-			print("step %d, training accuracy %g"%(i, train_accuracy))
-			train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+			print("step %d, training accuracy %.4f"%(i, train_accuracy))
+		train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
 
 	print("test accuracy %g"%accuracy.eval(feed_dict={
     	x: data.test.images, y_: data.test.labels, keep_prob: 1.0}))

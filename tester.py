@@ -27,15 +27,23 @@ def file2array(f):
 	return arr
 
 if __name__ == "__main__":
-	# python tester.py (pretain?) (number of training examples per class?) (preimage directory path)
+	# python tester.py (pretain?) (number of training examples per class?) (Pretrain epochs) (training epochs) (batchSize)
 	pretrain = int(sys.argv[1])
 	numTrain = int(sys.argv[2])
-	imagePath = "shape-imgs" #sys.argv[3]
+	numPreEpochs = int(sys.argv[3])
+	numEpochs = int(sys.argv[4])
+	batchSize = int(sys.argv[5])
+	imagePath = "shape-imgs"
 	filenames = glob.glob(imagePath+"_nparrays"+"/*")
 	dataX = numpy.array([numpy.load(fn).ravel() for fn in filenames])
 	f = open("labels.txt", "r")
 	dataY = one_hotify(file2array(f))
 	f.close()
-	if pretrain: model_path = pretrainAndSaveModel((dataX, dataY), (dataX, dataY), batchSize=100, numEpochs=150, numConvLayers=2, numFCLayers=2)
-	else: model_path = createModel((dataX, dataY), (dataX, dataY), numConvLayers=2, numFCLayers=2)
-	trainAndTestModel(model_path, "mnist", numTrain=1, batchSize=100, numEpochs=500, numConvLayers=2, numFCLayers=2)
+	if pretrain == 1: 
+		model_path = pretrainAndSaveModel((dataX, dataY), (dataX, dataY), batchSize=batchSize, numEpochs=numPreEpochs, numConvLayers=2, numFCLayers=2)
+	elif pretrain == 2: 
+		model_path = "pretrained_models/model-%i-%i-%i-%ipct.ckpt" % (batchSize, 100, 1000, 0)
+	else: 
+		model_path = createModel((dataX, dataY), (dataX, dataY), numConvLayers=2, numFCLayers=2)
+	print model_path
+	trainAndTestModel(model_path, "mnist", numTrain=numTrain, batchSize=batchSize, numEpochs=numEpochs, numConvLayers=2, numFCLayers=2)
