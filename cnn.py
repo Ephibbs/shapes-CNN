@@ -1,7 +1,13 @@
 import tensorflow as tf
 import numpy as np
 from tensorflow.examples.tutorials.mnist import input_data
-import numpy
+import matplotlib.pyplot as plt
+
+def loadNumpy(varName):
+	return np.load(varName+".npy")
+
+def saveNumpy(tfarr, varName):
+	np.save(varName+".npy", tfarr)
 
 def rev_one_hot(arr):
 	for e in range(len(arr)):
@@ -23,7 +29,7 @@ def max_pool_2x2(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1]):
 	return tf.nn.max_pool(x, ksize, strides, padding='SAME')
 
 def createModel((trainDataX, trainDataY), (testDataX, testDataY), numConvLayers=2, numFCLayers=2):
-	sess = tf.InteractiveSession()
+	sess = tf.Session()
 	xSize = trainDataX[0].size #reduce(lambda x, y: x*y, trainDataX[0].size)
 	ySize = len(trainDataY[0])
 	x = tf.placeholder(tf.float32, shape=[None, xSize])
@@ -64,12 +70,12 @@ def createModel((trainDataX, trainDataY), (testDataX, testDataY), numConvLayers=
 	accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 	sess.run(tf.global_variables_initializer())
 
-	saver = tf.train.Saver()
-	save_path = saver.save(sess, "unpretrained_models/model-%i-%i.ckpt"%(numConvLayers, numFCLayers))
-	return save_path
+	# saver = tf.train.Saver()
+	# save_path = saver.save(sess, "unpretrained_models/model-%i-%i.ckpt"%(numConvLayers, numFCLayers))
+	# return save_path
 
 def pretrainAndSaveModel((trainDataX, trainDataY), (testDataX, testDataY), batchSize=100, numEpochs=300, numConvLayers=2, numFCLayers=2):
-	sess = tf.InteractiveSession()
+	sess = tf.Session()
 	xSize = trainDataX[0].size #reduce(lambda x, y: x*y, trainDataX[0].size)
 	ySize = len(trainDataY[0])
 	x = tf.placeholder(tf.float32, shape=[None, xSize])
@@ -116,20 +122,33 @@ def pretrainAndSaveModel((trainDataX, trainDataY), (testDataX, testDataY), batch
 			end = min(start + batchSize, trainSize)
 	  		batchX = trainDataX[start:end]
 	  		batchY = trainDataY[start:end]
-	  		train_step.run(feed_dict={x: batchX, y_: batchY, keep_prob: 0.5})
+	  		train_step.run(session=sess, feed_dict={x: batchX, y_: batchY, keep_prob: 0.5})
 		if epoch%1 == 0:
-			train_accuracy = accuracy.eval(feed_dict={
+			train_accuracy = accuracy.eval(session=sess, feed_dict={
 				x: batchX, y_: batchY, keep_prob: 1.0})
 			print("step %d, training accuracy %.4f"%(epoch, train_accuracy))
-	acc = accuracy.eval(feed_dict={
+	acc = accuracy.eval(session=sess, feed_dict={
 	    x: testDataX, y_: testDataY, keep_prob: 1.0})
 	print("test accuracy %g"%acc)
 
-	saver = tf.train.Saver()
-	save_path = saver.save(sess, "pretrained_models/model-%i-%i-%i-%ipct.ckpt"%(batchSize, numEpochs, trainSize, acc))
-	return save_path
+	#print W_conv1.eval(session=sess)
+	print b_conv1.eval(session=sess)
+	print W_fc2.eval(session=sess)
 
-def trainAndTestModel(modelPath, dataSource="mnist", numTrain=1, batchSize=100, numEpochs=300, numConvLayers=2, numFCLayers=2):
+	# saver = tf.train.Saver()
+	# save_path = saver.save(sess, "pretrained_models/model-%i-%i-%i-%ipct.ckpt"%(batchSize, numEpochs, trainSize, acc))
+	# save in numpy form
+	saveNumpy(W_conv1.eval(session=sess), "W_conv1")
+	saveNumpy(b_conv1.eval(session=sess), "b_conv1")
+	saveNumpy(W_conv2.eval(session=sess), "W_conv2")
+	saveNumpy(b_conv2.eval(session=sess), "b_conv2")
+	saveNumpy(W_fc1.eval(session=sess), "W_fc1")
+	saveNumpy(b_fc1.eval(session=sess), "b_fc1")
+	saveNumpy(W_fc2.eval(session=sess), "W_fc2")
+	saveNumpy(b_fc2.eval(session=sess), "b_fc2")
+
+def trainAndTestModel(pretrain, dataSource="mnist", numTrain=1, batchSize=100, numEpochs=300, numConvLayers=2, numFCLayers=2):
+	sess = tf.Session()
 	if dataSource=="mnist":
 		data = input_data.read_data_sets('MNIST_data', one_hot=True)
 		xSize = 784
@@ -137,22 +156,24 @@ def trainAndTestModel(modelPath, dataSource="mnist", numTrain=1, batchSize=100, 
 	else:
 		#TODO: update dataset
 		data = input_data.read_data_sets('MNIST_data', one_hot=True)
-
-	W_conv1 = tf.Variable(tf.random_normal([5, 5, 1, 32]), name="W_conv1")
-	b_conv1 = tf.Variable(tf.random_normal([32]), name="b_conv1")
-	W_conv2 = tf.Variable(tf.random_normal([5, 5, 32, 64]), name="W_conv2")
-	b_conv2 = tf.Variable(tf.random_normal([64]), name="b_conv2")
-	W_fc1 = tf.Variable(tf.random_normal([7 * 7 * 64, 1024]), name="W_fc1")
-	b_fc1 = tf.Variable(tf.random_normal([1024]), name="b_fc1")
-	W_fc2 = tf.Variable(tf.random_normal([1024, ySize]), name="W_fc2")
-	b_fc2 = tf.Variable(tf.random_normal([ySize]), name="b_fc2")
-
-	print "Restoring model from %s" % modelPath
-	sess = tf.InteractiveSession()
-	saver = tf.train.import_meta_graph(modelPath+".meta")
-	#saver.restore(sess, tf.train.latest_checkpoint('./'))
-	saver.restore(sess, modelPath)
-	print("Model restored.")
+	if pretrain:
+		W_conv1 = tf.Variable(loadNumpy("W_conv1"), name="W_conv1")
+		b_conv1 = tf.Variable(loadNumpy("b_conv1"), name="b_conv1")
+		W_conv2 = tf.Variable(loadNumpy("W_conv2"), name="W_conv2")
+		b_conv2 = tf.Variable(loadNumpy("b_conv2"), name="b_conv2")
+		W_fc1 = tf.Variable(loadNumpy("W_fc1"), name="W_fc1")
+		b_fc1 = tf.Variable(loadNumpy("b_fc1"), name="b_fc1")
+		W_fc2 = tf.Variable(tf.random_normal([1024, ySize]), name="W_fc2")
+		b_fc2 = tf.Variable(tf.random_normal([ySize]), name="b_fc2")
+	else:
+		W_conv1 = tf.Variable(tf.random_normal([5, 5, 1, 32]), name="W_conv1")
+		b_conv1 = tf.Variable(tf.random_normal([32]), name="b_conv1")
+		W_conv2 = tf.Variable(tf.random_normal([5, 5, 32, 64]), name="W_conv2")
+		b_conv2 = tf.Variable(tf.random_normal([64]), name="b_conv2")
+		W_fc1 = tf.Variable(tf.random_normal([7 * 7 * 64, 1024]), name="W_fc1")
+		b_fc1 = tf.Variable(tf.random_normal([1024]), name="b_fc1")
+		W_fc2 = tf.Variable(tf.random_normal([1024, ySize]), name="W_fc2")
+		b_fc2 = tf.Variable(tf.random_normal([ySize]), name="b_fc2")
 
 	x = tf.placeholder(tf.float32, shape=[None, xSize])
 	y_ = tf.placeholder(tf.float32, shape=[None, ySize])
@@ -170,6 +191,9 @@ def trainAndTestModel(modelPath, dataSource="mnist", numTrain=1, batchSize=100, 
 	h_pool2_flat = tf.reshape(h_pool2, [-1, 7*7*64])
 	h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 
+	# init_new_vars_op = tf.variables_initializer([W_fc2, b_fc2])
+	# sess.run(init_new_vars_op)
+
 	h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
 	y = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
@@ -179,14 +203,17 @@ def trainAndTestModel(modelPath, dataSource="mnist", numTrain=1, batchSize=100, 
 	correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(y_,1))
 	accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 	sess.run(tf.global_variables_initializer())
-
 	counts = [0]*ySize
 	batches = []
+	#print W_conv1.eval(session=sess)
+	print b_conv1.eval(session=sess)
+	print W_fc2.eval(session=sess)
+	time = []
+	errors = []
 	while sum(counts) < ySize*numTrain:
 		batch = [[],[]]
 		while len(batch[0]) < batchSize and sum(counts) < ySize*numTrain:
 			sample = data.train.next_batch(1)
-			print counts
 			if counts[rev_one_hot(sample[1][0])] < numTrain:
 				batch[0].append(sample[0][0])
 				batch[1].append(sample[1][0])
@@ -196,17 +223,15 @@ def trainAndTestModel(modelPath, dataSource="mnist", numTrain=1, batchSize=100, 
 	for i in range(numEpochs):
 		if numTrain>0: batch = batches[i % numBatches]
 		else: batch = data.train.next_batch(batchSize)
-		if i%100 == 0:
-			train_accuracy = accuracy.eval(feed_dict={
-				x:batch[0], y_: batch[1], keep_prob: 1.0})
+		if i%50 == 0:
+			train_accuracy = accuracy.eval(session=sess, feed_dict={
+				x: data.train.images[1000:6000], y_: data.train.labels[1000:6000], keep_prob: 1.0})
+			time.append(i)
+			errors.append(train_accuracy)
 			print("step %d, training accuracy %.4f"%(i, train_accuracy))
-		train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
-
-	print("test accuracy %g"%accuracy.eval(feed_dict={
+		train_step.run(session=sess, feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+	print("test accuracy %g"%accuracy.eval(session=sess, feed_dict={
     	x: data.test.images, y_: data.test.labels, keep_prob: 1.0}))
-
-	# saver = tf.train.Saver()
-	# with tf.Session() as sess:
- #  		sess.run(init_op)
-	# 	save_path = saver.save(sess, "/trained_models/model-%i-%i-%i-%ipct.ckpt"%(batchSize, numEpochs, trainSize, acc))
-
+	plt.plot(time, errors)
+	plt.show()
+	plt.savefig("errors_"+str(train_accuracy)+".png")

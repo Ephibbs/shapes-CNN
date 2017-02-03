@@ -27,7 +27,7 @@ def file2array(f):
 	return arr
 
 if __name__ == "__main__":
-	# python tester.py (pretain?) (number of training examples per class?) (Pretrain epochs) (training epochs) (batchSize)
+	# python tester.py (pretain? 0:use new nonpretrained model; 1:use new pretrained model; 2:use saved pretrained model ) (number of training examples per class?) (Pretrain epochs) (training epochs) (batchSize)
 	pretrain = int(sys.argv[1])
 	numTrain = int(sys.argv[2])
 	numPreEpochs = int(sys.argv[3])
@@ -40,10 +40,7 @@ if __name__ == "__main__":
 	dataY = one_hotify(file2array(f))
 	f.close()
 	if pretrain == 1: 
-		model_path = pretrainAndSaveModel((dataX, dataY), (dataX, dataY), batchSize=batchSize, numEpochs=numPreEpochs, numConvLayers=2, numFCLayers=2)
-	elif pretrain == 2: 
-		model_path = "pretrained_models/model-%i-%i-%i-%ipct.ckpt" % (batchSize, 100, 1000, 0)
+		pretrainAndSaveModel((dataX, dataY), (dataX, dataY), batchSize=batchSize, numEpochs=numPreEpochs, numConvLayers=2, numFCLayers=2)
 	else: 
-		model_path = createModel((dataX, dataY), (dataX, dataY), numConvLayers=2, numFCLayers=2)
-	print model_path
-	trainAndTestModel(model_path, "mnist", numTrain=numTrain, batchSize=batchSize, numEpochs=numEpochs, numConvLayers=2, numFCLayers=2)
+		createModel((dataX, dataY), (dataX, dataY), numConvLayers=2, numFCLayers=2)
+	trainAndTestModel(pretrain, "mnist", numTrain=numTrain, batchSize=batchSize, numEpochs=numEpochs, numConvLayers=2, numFCLayers=2)
