@@ -70,11 +70,7 @@ def createModel((trainDataX, trainDataY), (testDataX, testDataY), numConvLayers=
 	accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 	sess.run(tf.global_variables_initializer())
 
-	# saver = tf.train.Saver()
-	# save_path = saver.save(sess, "unpretrained_models/model-%i-%i.ckpt"%(numConvLayers, numFCLayers))
-	# return save_path
-
-def pretrainAndSaveModel((trainDataX, trainDataY), (testDataX, testDataY), batchSize=100, numEpochs=300, numConvLayers=2, numFCLayers=2):
+def pretrainModel((trainDataX, trainDataY), (testDataX, testDataY), batchSize=100, numEpochs=300, numConvLayers=2, numFCLayers=2):
 	sess = tf.Session()
 	xSize = trainDataX[0].size #reduce(lambda x, y: x*y, trainDataX[0].size)
 	ySize = len(trainDataY[0])
@@ -131,13 +127,10 @@ def pretrainAndSaveModel((trainDataX, trainDataY), (testDataX, testDataY), batch
 	    x: testDataX, y_: testDataY, keep_prob: 1.0})
 	print("test accuracy %g"%acc)
 
-	#print W_conv1.eval(session=sess)
-	print b_conv1.eval(session=sess)
-	print W_fc2.eval(session=sess)
+	# print W_conv1.eval(session=sess)
+	# print b_conv1.eval(session=sess)
+	# print W_fc2.eval(session=sess)
 
-	# saver = tf.train.Saver()
-	# save_path = saver.save(sess, "pretrained_models/model-%i-%i-%i-%ipct.ckpt"%(batchSize, numEpochs, trainSize, acc))
-	# save in numpy form
 	saveNumpy(W_conv1.eval(session=sess), "W_conv1")
 	saveNumpy(b_conv1.eval(session=sess), "b_conv1")
 	saveNumpy(W_conv2.eval(session=sess), "W_conv2")
@@ -147,7 +140,7 @@ def pretrainAndSaveModel((trainDataX, trainDataY), (testDataX, testDataY), batch
 	saveNumpy(W_fc2.eval(session=sess), "W_fc2")
 	saveNumpy(b_fc2.eval(session=sess), "b_fc2")
 
-def trainAndTestModel(pretrain, dataSource="mnist", numTrain=1, batchSize=100, numEpochs=300, numConvLayers=2, numFCLayers=2):
+def updateModel(pretrain, dataSource="mnist", numConvLayers=2, numFCLayers=2):
 	sess = tf.Session()
 	if dataSource=="mnist":
 		data = input_data.read_data_sets('MNIST_data', one_hot=True)
@@ -191,13 +184,13 @@ def trainAndTestModel(pretrain, dataSource="mnist", numTrain=1, batchSize=100, n
 	h_pool2_flat = tf.reshape(h_pool2, [-1, 7*7*64])
 	h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 
-	# init_new_vars_op = tf.variables_initializer([W_fc2, b_fc2])
-	# sess.run(init_new_vars_op)
-
 	h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
 	y = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
 
+	return (x, y, y_, sess, ySize, data, keep_prob)
+
+def trainModel((x, y, y_, sess, ySize, data, keep_prob), numTrain=1, batchSize=100, numEpochs=1000):
 	cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y, y_))
 	train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 	correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(y_,1))
@@ -205,11 +198,8 @@ def trainAndTestModel(pretrain, dataSource="mnist", numTrain=1, batchSize=100, n
 	sess.run(tf.global_variables_initializer())
 	counts = [0]*ySize
 	batches = []
-	#print W_conv1.eval(session=sess)
-	print b_conv1.eval(session=sess)
-	print W_fc2.eval(session=sess)
 	time = []
-	errors = []
+	accs = [0, 1]
 	while sum(counts) < ySize*numTrain:
 		batch = [[],[]]
 		while len(batch[0]) < batchSize and sum(counts) < ySize*numTrain:
@@ -220,18 +210,25 @@ def trainAndTestModel(pretrain, dataSource="mnist", numTrain=1, batchSize=100, n
 				counts[rev_one_hot(sample[1][0])]+=1
 		batches.append(batch)
 	numBatches = len(batches)
-	for i in range(numEpochs):
+	i=0
+	while abs(accs[-1] - accs[-2]) > 1e-6:
 		if numTrain>0: batch = batches[i % numBatches]
 		else: batch = data.train.next_batch(batchSize)
-		if i%50 == 0:
+		if i%100 == 0:
 			train_accuracy = accuracy.eval(session=sess, feed_dict={
-				x: data.train.images[1000:6000], y_: data.train.labels[1000:6000], keep_prob: 1.0})
+				x: data.validation.images, y_: data.validation.labels, keep_prob: 1.0})
 			time.append(i)
-			errors.append(train_accuracy)
+			accs.append(train_accuracy)
 			print("step %d, training accuracy %.4f"%(i, train_accuracy))
 		train_step.run(session=sess, feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+		i+=1
+	return (x, y, y_, sess, data, keep_prob, accuracy), (time, accs[2:])
+
+def testModel((x, y, y_, sess, data, keep_prob, accuracy)):
 	print("test accuracy %g"%accuracy.eval(session=sess, feed_dict={
-    	x: data.test.images, y_: data.test.labels, keep_prob: 1.0}))
-	plt.plot(time, errors)
-	plt.show()
-	plt.savefig("errors_"+str(train_accuracy)+".png")
+    	x: data.validation.images, y_: data.validation.labels, keep_prob: 1.0}))
+
+
+# plt.plot(time, errors)
+# plt.show()
+# plt.savefig("errors_"+str(train_accuracy)+".png")

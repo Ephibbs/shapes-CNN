@@ -40,7 +40,9 @@ if __name__ == "__main__":
 	dataY = one_hotify(file2array(f))
 	f.close()
 	if pretrain == 1: 
-		pretrainAndSaveModel((dataX, dataY), (dataX, dataY), batchSize=batchSize, numEpochs=numPreEpochs, numConvLayers=2, numFCLayers=2)
+		pretrainModel((dataX, dataY), (dataX, dataY), batchSize=batchSize, numEpochs=numPreEpochs, numConvLayers=2, numFCLayers=2)
 	else: 
 		createModel((dataX, dataY), (dataX, dataY), numConvLayers=2, numFCLayers=2)
-	trainAndTestModel(pretrain, "mnist", numTrain=numTrain, batchSize=batchSize, numEpochs=numEpochs, numConvLayers=2, numFCLayers=2)
+	params = updateModel(pretrain, "mnist", numConvLayers=2, numFCLayers=2)
+	params, trainaccs = trainModel(params, numTrain=numTrain, batchSize=batchSize, numEpochs=numEpochs)
+	testModel(params)
