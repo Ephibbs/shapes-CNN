@@ -13,7 +13,7 @@ def rotate(origin, point, angle):
     return qx, qy
 
 def generateRandomImages(folderPath, n, sizeX, sizeY, labelFile="labels.txt"):
-	f = open(labelFile, "w+")
+	f = open(folderPath+"_nparrays"+"/"+labelFile, "w+")
 	if not os.path.exists(folderPath):
 		os.makedirs(folderPath)
 	if not os.path.exists(folderPath+"_nparrays"):
@@ -30,9 +30,9 @@ def generateOneRandomImage(folderPath, imgPath, sizeX, sizeY, antialias=2):
 	largeSizeY = antialias*sizeY
 	txt = Image.new('L', (largeSizeX, largeSizeY), (0))
 	d = ImageDraw.Draw(txt)
-	i = random.randint(0,1)
+	i = random.randint(0,2)
 	maxSize = min(largeSizeX, largeSizeY)
-	if i:
+	if i == 2:
 		x = np.random.randint(largeSizeX*1/4,largeSizeX*3/4)
 		y = np.random.randint(largeSizeY*1/4,largeSizeY*3/4)
 		center = (x,y)
@@ -43,6 +43,16 @@ def generateOneRandomImage(folderPath, imgPath, sizeX, sizeY, antialias=2):
 		lb = (center[0]+sideLen/2, center[1]+sideLen/2); lb = rotate(center, lb, rotation)
 		rb = (center[0]+sideLen/2, center[1]-sideLen/2); rb = rotate(center, rb, rotation)
 		d.polygon([lt, rt, lb, rb], fill = 'white')
+	elif i == 1:
+		x = np.random.randint(largeSizeX*1/4,largeSizeX*3/4)
+		y = np.random.randint(largeSizeY*1/4,largeSizeY*3/4)
+		center = (x,y)
+		sideLen = random.randint(maxSize*1/10, maxSize*1/2)
+		rotation = random.randint(0, 89)
+		p1 = (center[0]-sideLen/2, center[1]-sideLen/2); p1 = rotate(center, p1, rotation)
+		p2 = (center[0]-sideLen/2, center[1]+sideLen/2); p2 = rotate(center, p2, rotation)
+		p3 = (center[0]+sideLen/2, center[1]); p3 = rotate(center, p3, rotation)
+		d.polygon([p1, p2, p3], fill = 'white')
 	else:
 		randParams = (random.randint(largeSizeX*1/4,largeSizeX*3/4), random.randint(largeSizeY*1/4,largeSizeY*3/4), random.randint(maxSize*1/10, maxSize*1/4))
 		d.ellipse((randParams[0]-randParams[2], randParams[1]-randParams[2], randParams[0]+randParams[2], randParams[1]+randParams[2]), fill = "white")

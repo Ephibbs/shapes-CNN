@@ -1,2 +1,0 @@
-model_checkpoint_path: "model-50-100-1000-0pct.ckpt"
-all_model_checkpoint_paths: "model-50-100-1000-0pct.ckpt"

@@ -27,22 +27,48 @@ def file2array(f):
 	return arr
 
 if __name__ == "__main__":
-	# python tester.py (pretain? 0:use new nonpretrained model; 1:use new pretrained model; 2:use saved pretrained model ) (number of training examples per class?) (Pretrain epochs) (training epochs) (batchSize)
-	pretrain = int(sys.argv[1])
-	numTrain = int(sys.argv[2])
-	numPreEpochs = int(sys.argv[3])
-	numEpochs = int(sys.argv[4])
-	batchSize = int(sys.argv[5])
-	imagePath = "shape-imgs"
-	filenames = glob.glob(imagePath+"_nparrays"+"/*")
-	dataX = numpy.array([numpy.load(fn).ravel() for fn in filenames])
-	f = open("labels.txt", "r")
-	dataY = one_hotify(file2array(f))
-	f.close()
-	if pretrain == 1: 
-		pretrainModel((dataX, dataY), (dataX, dataY), batchSize=batchSize, numEpochs=numPreEpochs, numConvLayers=2, numFCLayers=2)
-	else: 
-		createModel((dataX, dataY), (dataX, dataY), numConvLayers=2, numFCLayers=2)
-	params = updateModel(pretrain, "mnist", numConvLayers=2, numFCLayers=2)
-	params, trainaccs = trainModel(params, numTrain=numTrain, batchSize=batchSize, numEpochs=numEpochs)
-	testModel(params)
+	# python tester.py "test-suite"|"single-test" (0 (no pretraining)|1 (pretrain)| 2 (use saved model)) (number of training examples per class?)
+	if len(sys.argv) < 3: 
+		print 'Usage: python tester.py "test-suite"|"single-test" [ 0 (no pretraining) | 1 (pretrain)| 2 (use saved pretrained model) ] [# training samples per class]'
+		print 'Running python tester.py "test-suite" does not require any more parameters'
+	mode = sys.argv[1]
+	batch_size = 50
+	if mode=="test-suite":
+		image_path = "shape-imgs"
+		filenames = glob.glob(image_path+"_nparrays"+"/*.npy")
+		data_x = numpy.array([numpy.load(fn).ravel() for fn in filenames])
+		f = open(image_path+"_nparrays"+"/labels.txt", "r")
+		data_y = one_hotify(file2array(f))
+		f.close()
+		for num_train in [1, 10, 100, 1000, 0]:
+			for pretrain in [0,2]:
+				for i in range(3):
+					if pretrain == 1: 
+						pretrain_model((data_x, data_y), (data_x, data_y), batch_size=batch_size, num_conv_layers=2, num_fc_layers=2)
+					else: 
+						create_model((data_x, data_y), (data_x, data_y), num_conv_layers=2, num_fc_layers=2)
+					params = update_model(pretrain, "mnist", num_conv_layers=2, num_fc_layers=2)
+					params, train_accs = train_model(params, num_train=num_train, batch_size=batch_size)
+					print "with numtrain=%i, pretrain=%i, and test #%i\n" % (num_train, pretrain, i)
+					test_model(params)
+					print "\n\n"
+	elif mode=="single-test":
+		pretrain = int(sys.argv[2])
+		num_train = int(sys.argv[3])
+		if pretrain:
+			print "Setting up a model WITH pretraining, training on %i samples per class ..." % num_train
+		else:
+			print "Setting up a model WITHOUT pretraining, training on %i samples per class ..." % num_train
+		image_path = "shape-imgs"
+		filenames = glob.glob(image_path+"_nparrays"+"/*.npy")
+		data_x = numpy.array([numpy.load(fn).ravel() for fn in filenames])
+		f = open(image_path+"_nparrays"+"/labels.txt", "r")
+		data_y = one_hotify(file2array(f))
+		f.close()
+		if pretrain == 1: 
+			pretrain_model((data_x, data_y), (data_x, data_y), batch_size=batch_size, num_conv_layers=2, num_fc_layers=2)
+		else: 
+			create_model((data_x, data_y), (data_x, data_y), num_conv_layers=2, num_fc_layers=2)
+		params = update_model(pretrain, "mnist", num_conv_layers=2, num_fc_layers=2)
+		params, train_accs = train_model(params, num_train=num_train, batch_size=batch_size)
+		test_model(params)
